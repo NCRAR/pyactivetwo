@@ -7,6 +7,8 @@ Licensed under MIT
 Builds on example code by Jack Keegan
 https://batchloaf.wordpress.com/2014/01/17/real-time-analysis-of-data-from-biosemi-activetwo-via-tcpip-using-python/
 """
+import logging
+log = logging.getLogger(__name__)
 
 import socket
 import numpy as np
@@ -25,7 +27,7 @@ class ActiveTwoClient:
     def __init__(self, host='127.0.0.1', port=8888, eeg_channels=32,
                  ex_included=False, sensors_included=False,
                  jazz_included=False, aib_included=False,
-                 trigger_included=False, tcp_samples=128, socket_timeout=0.25,
+                 trigger_included=False, socket_timeout=0.25,
                  fs=512):
         """
         Initialize connection and parameters of the signal
@@ -40,6 +42,14 @@ class ActiveTwoClient:
             Number of EEG channels included
         """
         self.__dict__.update(locals())
+
+        # Calculate number of TCP samples in array.
+        if not (256 <= fs <= 16384):
+            raise ValueError('Invalid sampling rate supplied')
+        decimation_factor = 16384 / fs
+        if int(decimation_factor) != decimation_factor:
+            raise ValueError('Invalid sampling rate supplied')
+        self.tcp_samples = int(128 / decimation_factor)
 
         # Build a mapping of channel type to a Numpy slice that can be used to
         # segment the data that we read in. I use a little trick to enable
@@ -69,6 +79,9 @@ class ActiveTwoClient:
         self.slices = slices
         self.n_channels = n_channels
         self.buffer_size = self.n_channels * self.tcp_samples * 3
+        m = 'ActiveTwoClient configured with %d channels at %f Hz'
+        log.info(m, self.n_channels, self.fs)
+        log.info('Expecting %d samples/chan', self.tcp_samples)
 
     def _read(self, samples):
         signal_buffer = np.zeros((self.n_channels, self.tcp_samples), dtype='int32')
