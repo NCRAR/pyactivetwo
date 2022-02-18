@@ -1,6 +1,6 @@
 """
 Copyright 2015, Ilya Kuzovkin
-Copyright 2021, Buran Consulting, LLC
+Copyright 2021-2022, Buran Consulting, LLC
 
 Licensed under MIT
 
@@ -107,10 +107,7 @@ class ActiveTwoClient:
         """
         total_samples = int(round(duration * self.fs))
 
-        # initialize final data array
-        #rawdata = np.empty((self.n_channels, 0), dtype='int32')
-
-        # the reader process will run until requested amount of data is collected
+        # The reader process will run until requested amount of data is collected
         samples = 0
         data = []
         while samples < total_samples:
