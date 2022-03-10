@@ -29,7 +29,7 @@ SPEED_MODE = {
 def is_set(x, bit):
     # Parentheses are not needed because of operator precedence rules, but help
     # make the code more readable.
-    return (x & (1 << bit)) != 0
+    return bool((x & (1 << bit)) != 0)
 
 
 def decode_trigger(x):
@@ -57,13 +57,13 @@ def decode_trigger(x):
     trigger = 0b1111111111111111
 
     return {
-        'trigger': x & trigger,
+        'trigger': int(x & trigger),
         'cms_in_range': is_set(x, 20),
         'low_battery': is_set(x, 22),
         'ActiveMK2': is_set(x, 23),
         'speed_mode': speed_mode,
         'new_epoch': is_set(x, 16),
-        'fs': SPEED_MODE[speed_mode],
+        #'fs': SPEED_MODE[speed_mode],
     }
 
 
