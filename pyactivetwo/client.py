@@ -146,8 +146,38 @@ class ActiveTwoClient:
         log.info(m, self.n_channels, self.fs)
         log.info('Expecting %d samples/chan', self.tcp_samples)
 
-    def _read(self, samples):
-        signal_buffer = np.zeros((self.n_channels, self.tcp_samples), dtype='int32')
+        self._scale = np.array([256**1, 256**2, 256**3])
+        self._read = self._read_scale
+
+    def _read_scale(self, samples):
+        # This implements the approach used in the Matlab TCP example
+        data = self.sock.recv(self.buffer_size)
+        data = np.frombuffer(data, dtype='uint8').reshape((self.tcp_samples, self.n_channels, 3))
+        return np.sum(data * self._scale, axis=-1).T.astype('int32')
+
+    def _read_bitshift(self, samples):
+        # This is a tad bit slower in testing
+        signal_buffer = np.zeros((self.n_channels, self.tcp_samples), dtype='uint32')
+        data = self.sock.recv(self.buffer_size)
+
+        for m in range(self.tcp_samples):
+            # extract samples for each channel
+            for channel in range(self.n_channels):
+                offset = m * 3 * self.n_channels + (channel * 3)
+
+                # The 3 bytes of each sample arrive in reverse order
+                sample = \
+                    (data[offset+2] << 24) + \
+                    (data[offset+1] << 16) + \
+                    (data[offset] << 8)
+
+                # Store sample to signal buffer
+                signal_buffer[channel, m] = sample
+
+        return signal_buffer
+
+    def _read_bitshift(self, samples):
+        signal_buffer = np.zeros((self.n_channels, self.tcp_samples), dtype='uint32')
         data = self.sock.recv(self.buffer_size)
 
         for m in range(self.tcp_samples):
@@ -191,13 +221,22 @@ class ActiveTwoClient:
                 data.append(self._read(samples))
                 samples += self.tcp_samples
             except Exception as e:
+                log.exception(e)
                 break
 
         if data:
             data = np.concatenate(data, axis=-1)
         else:
             data = np.empty((self.n_channels, 0), dtype='int32')
-        return {k: data[s] for k, s in self.slices.items()}
+
+        result = {}
+        for name, s in self.slices.items():
+            if name != 'trigger':
+                # Convert to microvolts
+                result[name] = data[s] * 31.25e-9 / 256
+            else:
+                result[name] = data[s]
+        return result
 
     def connect(self):
         # Open connection. Be sure to set a timeout to make sure that the
