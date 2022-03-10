@@ -81,7 +81,7 @@ class ActiveTwoClient:
                  ex_included=False, sensors_included=False,
                  jazz_included=False, aib_included=False,
                  trigger_included=False, socket_timeout=0.25,
-                 fs=512):
+                 fs=512, combine_eeg_exg=True):
         """
         Initialize connection and parameters of the signal
 
@@ -93,6 +93,9 @@ class ActiveTwoClient:
             Port number ActiView server is listening on
         eeg_channels : float
             Number of EEG channels included
+        combine_eeg_exg : bool
+            If true, the EEG and EXG channels are combined into a single 2D
+            array (with EXG stacked at the end).
         """
         self.__dict__.update(locals())
 
@@ -110,6 +113,13 @@ class ActiveTwoClient:
         # n_channels will tell us how many channels are being read in.
         slices = {}
         n_channels = 0
+
+        # Since the EXG channels come immediately after the EEG channels, we
+        # can easily treat them as a single set of channels that are merged.
+        if combine_eeg_exg and ex_included:
+            eeg_channels = eeg_channels + 8
+            ex_included = False
+
         if eeg_channels != 0:
             slices['eeg'] = np.s_[n_channels:eeg_channels]
             n_channels += eeg_channels
